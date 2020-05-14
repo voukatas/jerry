@@ -5,7 +5,8 @@
  *      Author: voukatas
  */
 
-#include <stdio.h>
+#include <iostream>
+#include <cstdio>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -32,7 +33,7 @@ int main()
 
 	if ((rv = getaddrinfo(NULL, PORT, &addr_info, &ptr_serv_info)) != 0)
 	{
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+		std::cerr << "getaddrinfo: " << gai_strerror(rv) << std::endl;
 		return -1;
 	}
 
@@ -41,20 +42,20 @@ int main()
 	{
 		if ((server_sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
 		{
-			perror("Server: server_sock");
+			std::perror("Server: server_sock");
 			continue;
 		}
 
 		if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
 		{
-			perror("setsockopt");
+			std::perror("setsockopt");
 			exit(-1);
 		}
 
 		if (bind(server_sock, p->ai_addr, p->ai_addrlen) == -1)
 		{
 			close(server_sock);
-			perror("Server: bind");
+			std::perror("Server: bind");
 			continue;
 		}
 
@@ -66,29 +67,29 @@ int main()
 
 	if (p == NULL)
 	{
-		fprintf(stderr, "Server: failed to bind\n");
+		std::cerr << "Server: failed to bind" << std::endl;
 		exit(-1);
 	}
 
 	if (listen(server_sock, BACKLOG) == -1)
 	{
-		perror("listen");
+		std::perror("listen");
 		exit(-1);
 	}
 
 	//create the thread that will accept connections
 	pthread_t th_accept;
-	if ((pthread_create(&th_accept, NULL, (void *) &handleClient, (void *)&server_sock)) == 0)
+	if ((pthread_create(&th_accept, NULL, &handleClient, &server_sock)) == 0)
 	{
-		fprintf(stderr, "Server started : server_sock = %d\n",server_sock);
-		fprintf(stderr, "Waiting for connections...\n");
+		std::cerr << "Server started : server_sock = " << server_sock << std::endl;
+		std::cerr << "Waiting for connections..." << std::endl;
 
 		//wait for thread
 		pthread_join(th_accept, NULL);
 	}
 	else
 	{
-		perror("main():pthread_create: fail");
+		std::perror("main():pthread_create: fail");
 	}
 
 

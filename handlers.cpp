@@ -4,7 +4,8 @@
  *  Created on: May 13, 2020
  *      Author: voukatas
  */
-#include <stdio.h>
+#include <iostream>
+#include <cstdio>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -33,18 +34,20 @@ void *tClient(void* client_sock)
 {
 	int client_sock_local = *((int*)client_sock);
 	//free the previously allocated int
-	free(client_sock);
+	delete (int*)client_sock;
 
 
 	char buffer[MAXDATASIZE] = { 0 };
 	int numbytes;
-	char *msg = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: 21\n\n<H1>Hello World!</H1>";
+	std::string msg = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: 21\n\n<H1>Hello World!</H1>";
+
+	const char * c_msg = msg.c_str();
 
 
-	//wait from the client data
+	//wait data from the client
 	if ((numbytes = recv(client_sock_local, buffer, MAXDATASIZE - 1, 0)) == -1)
 	{
-		perror("Server: recv");
+		std::perror("Server: recv");
 		close(client_sock_local);
 		return NULL;// connection closed, nothing to do so return
 	}
@@ -55,21 +58,21 @@ void *tClient(void* client_sock)
 
 		if(DEBUG)
 		{
-			fprintf(stderr, "client sent: %s\n\n",buffer);
+			std::cerr << "client sent: " << buffer << std::endl;
 		}
 	}
 
 
-	//send to client data
-	if (send(client_sock_local, msg, strlen(msg), 0) == -1)
+	//send data to client
+	if (send(client_sock_local, c_msg, strlen(c_msg), 0) == -1)//if (send(client_sock_local, msg, strlen(msg), 0) == -1)
 	{
-		perror("send");
+		std::perror("send");
 	}
 	else
 	{
 		if(DEBUG)
 		{
-			fprintf(stderr, "-----------DATA SEND------------------\n");
+			std::cerr << "--------------DATA SEND--------------" << std::endl;
 		}
 	}
 
@@ -88,7 +91,7 @@ void *handleClient(void* server_sock_val)
 	while (1)
 	{
 
-		int* p_clientSock = NULL;
+		int* p_clientSock = nullptr;
 		int accept_fd = -1;
 
 
@@ -105,7 +108,7 @@ void *handleClient(void* server_sock_val)
 			if (accept_fd > 0)
 			{
 				inet_ntop(their_addr.ss_family,get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
-				fprintf(stderr, "Server: got connection from %s\n\n", s);
+				std::cerr << "Server: got connection from " << s << std::endl;
 			}
 
 
@@ -119,25 +122,25 @@ void *handleClient(void* server_sock_val)
 		if (accept_fd > 0)
 		{
 			//This is needed in order to avoid having the client socket overwritten from other request
-			p_clientSock = (int*)malloc(sizeof (int));
+			p_clientSock = new int;
 			*p_clientSock = accept_fd;
 		}
 
 
 		if(DEBUG && accept_fd > 0)
 		{
-			fprintf(stderr, "^^^handleClient: p_clientSock %p\n\n", p_clientSock);
+			std::cerr << "^^^handleClient: p_clientSock " << *p_clientSock << "\n" << std::endl;
 		}
 
-		if ((p_clientSock != NULL) && (*p_clientSock > 0) )
+		if ((p_clientSock != nullptr) && (*p_clientSock > 0) )
 		{
 			pthread_t th_conn;
 
-			if ((pthread_create(&th_conn, NULL,(void *) &tClient, (void *)p_clientSock)) == 0)
+			if ((pthread_create(&th_conn, NULL, &tClient, p_clientSock)) == 0)
 			{
 				if(DEBUG)
 				{
-					fprintf(stderr, "handleClient: A new thread connection created. Socket: %d\n",	*p_clientSock);
+					std::cerr << "handleClient: A new thread connection created. Socket:" << *p_clientSock << std::endl;
 				}
 
 				//This is needed to free the thread resources but pthread_detach is faster,
@@ -148,15 +151,22 @@ void *handleClient(void* server_sock_val)
 			}
 			else
 			{
-				perror("handleClient: pthread_create: fail");
+				if(p_clientSock != nullptr)
+				{
+					delete (int*)p_clientSock;
+				}
+				std::perror("handleClient: pthread_create: fail");
 				close(*p_clientSock);
 			}
 
 		}
 		else
 		{
-			perror("Server: accept");
-			//close(*p_clientSock);
+			if(p_clientSock != nullptr)
+			{
+				delete (int*)p_clientSock;
+			}
+			std::perror("Server: accept");
 		}
 
 	}
