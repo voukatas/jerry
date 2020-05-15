@@ -13,9 +13,12 @@ It is build with GCC and Linux, I don't know if it works on other machines (Wind
 ### Architecture
 First I wrote it with each request having its own process ( a lot of forking ) and then I thought, why not threads?! So...
 
-The main() thread initiates the sever socket (creates, binds and setup the listener) and then creates a separate thread that accepts the clients. 
-Then the thread that does the accept, spawns a thread for each client that does the handling for them. The server waits for the GET request, which reads partially( ToDo: complete the parser) and responds with the requested contents of the page, if the page exists, else sends a failure message.
-If no specific page is requested from the client(eg. localhost:8080/) the server loads the index.html file( again if it exists)
+The main() thread initiates the sever socket (creates, binds and setup the listener) and then creates a separate thread that accepts the clients.
+Then the thread that does the accept, spawns a thread for each client that does the handling for them.
+
+The server waits for the GET request, which reads partially( ToDo: complete the parser) and responds with the requested contents of the page, if that page exists, else it sends a failure message to the client.
+
+If no specific page is requested from the client(eg. localhost:8080/) the server loads the index.html file
 
 This is just a design I pick to reach my goals. Other possibly more efficient designs could be async I/O with threads, blocking I/O thread pools, separate process to track, non-blocking multiplexing I/O with epoll/poll/select and so on...
 
@@ -95,9 +98,9 @@ actually the above request triggers the index.html file, so you can do this also
 http://localhost:8080/index.html
 ```
 
-or browse the contents of the project like
+or browse the source code of the project like this
 ```
-http://localhost:8080/jerry.c
+http://localhost:8080/jerry.cpp
 ```
 
 or even create your own html file while the server is running and request this
@@ -192,7 +195,7 @@ Killed
 ## Closure
 The whole project was implemented in order to further understand the above mentioned technologies. I decided to share it with everyone in case someone else out there needs to see how all these might work. Comments and fixes are all welcome, since they  will help me further understand how things work.
 
-I am not sure if I ever going to extend this from a basic hello world message.(but I am flirting with a GET/HEAD parser)
+I am not sure if I ever going to extend this from this basic form.(but also I might, who knows)
 
 ## Acknowledgments
 
