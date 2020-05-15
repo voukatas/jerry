@@ -56,12 +56,12 @@ At this point I should probably add more unit tests...I know,I know TDD etc..
 As a unit-testing framework I am using [Catch](https://github.com/catchorg/Catch2) by Phil Nash which is pretty straightforward and excellent!
 
 To run the tests use this
-'''
+```
 cd test
-'''
-'''
+```
+```
 g++ -std=c++17 ../handlers.cpp ../HttpParser.cpp tests.cpp -lpthread -o tests
-'''
+```
 
 For benchmarking I used [Apache Benchmark](https://httpd.apache.org/docs/2.4/programs/ab.html)
 
