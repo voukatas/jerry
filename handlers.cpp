@@ -14,11 +14,23 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <fstream>
+#include <streambuf>
+#include <sstream>
 
 #include "handlers.h"
+#include "HttpParser.h"
 #include "config.h"
 
-// get sockaddr, IPv4 or IPv6:
+
+static void sendData(int client_sock_local, std::string msg );
+static std::string read_and_build_html_data(std::ifstream& file);
+
+
+static std::string fail_msg = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: 29\n\n<H1>Not a valid Request!</H1>";
+static std::string header = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: ";
+
+//socket address IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
 {
 	if (sa->sa_family == AF_INET)
@@ -29,7 +41,7 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*) sa)->sin6_addr);
 }
 
-
+//the function that the client handling thread is executing
 void *tClient(void* client_sock)
 {
 	int client_sock_local = *((int*)client_sock);
@@ -39,48 +51,130 @@ void *tClient(void* client_sock)
 
 	char buffer[MAXDATASIZE] = { 0 };
 	int numbytes;
-	std::string msg = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: 21\n\n<H1>Hello World!</H1>";
+	//std::string msg = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: 21\n\n<H1>Hello World!</H1>";
 
-	const char * c_msg = msg.c_str();
-
+	std::string html_page;
 
 	//wait data from the client
-	if ((numbytes = recv(client_sock_local, buffer, MAXDATASIZE - 1, 0)) == -1)
+	numbytes = recv(client_sock_local, buffer, MAXDATASIZE - 1, 0);
+	if ( numbytes <= 0)
 	{
-		std::perror("Server: recv");
+		if( numbytes == 0)
+		{
+			std::perror("Server: recv null msg ");
+		}
+		else
+		{
+			std::perror("Server: recv");
+		}
 		close(client_sock_local);
 		return NULL;// connection closed, nothing to do so return
 	}
-	else
-	{
-		//set the last byte to NUL termination string
-		buffer[numbytes] = '\0';
 
-		if(DEBUG)
-		{
-			std::cerr << "client sent: " << buffer << std::endl;
-		}
+	//set the last byte to NUL termination string
+	buffer[numbytes] = '\0';
+
+	HttpParser parse_req{buffer};
+
+	if(DEBUG)
+	{
+		std::cerr << "isReqValid:" << parse_req.isReqValid() << "\n" << std::endl;
+		std::cerr << "client sent: " << parse_req.getRequest() << "\n" << std::endl;
+		std::cerr << "client sent method:" << parse_req.getMethodName() << std::endl;
+		std::cerr << "client sent path:" << parse_req.getPath() << std::endl;
+		std::cerr << "client sent protocol: " << parse_req.getProtocol()<<"\n\n" << std::endl;
 	}
 
+	//ToDo isReqValid
+	//In case of a http request directly on folder (eg. test)  will create a core dump because seekg/tellg
+	//will be invalid so the size will be invalid. Either change seekg/tellg or guarded properly, maybe to restrict rights
+	//Currently to guard from the core dump a restriction for the "test" folder is used but needs fixing!!!
+	if( !parse_req.isReqValid() )
+	{
+		//ToDo Send a proper Response
+
+		sendData( client_sock_local, fail_msg );
+		close(client_sock_local);
+		return NULL;// connection closed, nothing to do so return
+	}
+
+	//THIS SHOULD BE DELETED JUST A TEMPORARY GUARD
+	//Also other variations will core dump, like test/ test// /home/ etc..
+	if( parse_req.getPath()=="test" || parse_req.getPath()=="test/")
+	{
+		//ToDo Send a proper Response
+		sendData( client_sock_local, fail_msg );
+		close(client_sock_local);
+		return NULL;// connection closed, nothing to do so return
+	}
+
+	if(!parse_req.getPath().empty())
+	{
+		//Read from the specified file
+
+		std::ifstream file{parse_req.getPath()};
+		if (file.fail())
+		{
+			if(DEBUG)
+			{
+				std::cerr << "failed to open file:" << parse_req.getPath() << "\n" << std::endl;
+			}
+		    // file could not be opened
+			sendData( client_sock_local, fail_msg );
+			close(client_sock_local);
+			return NULL;// connection closed, nothing to do so return
+
+		}
+
+		if (file.is_open())
+		{
+			html_page = read_and_build_html_data(file);
+		}
+
+	}
+
+
+	//Client Requested the default path
+	if(parse_req.getPath().empty())
+	{
+		//Read from index.html
+		if(DEBUG)
+		{
+			std::cerr << "Client Requested the default path:" << "\n" << std::endl;
+		}
+
+		std::ifstream index{"index.html"};
+
+		if (index.fail())
+		{
+			if(DEBUG)
+			{
+				std::cerr << "failed to open file:" << "index.html" << "\n" << std::endl;
+			}
+		    // file could not be opened
+			sendData( client_sock_local, fail_msg );
+			close(client_sock_local);
+			return NULL;// connection closed, nothing to do so return
+
+		}
+
+		if (index.is_open())
+		{
+			html_page = read_and_build_html_data(index);
+		}
+
+
+	}
 
 	//send data to client
-	if (send(client_sock_local, c_msg, strlen(c_msg), 0) == -1)//if (send(client_sock_local, msg, strlen(msg), 0) == -1)
-	{
-		std::perror("send");
-	}
-	else
-	{
-		if(DEBUG)
-		{
-			std::cerr << "--------------DATA SEND--------------" << std::endl;
-		}
-	}
+	sendData( client_sock_local, html_page );
 
 	//close the connection
 	close(client_sock_local);
 
 }
 
+//the function that the thread that does the accept executes
 void *handleClient(void* server_sock_val)
 {
 
@@ -170,4 +264,50 @@ void *handleClient(void* server_sock_val)
 		}
 
 	}
+}
+
+std::string read_and_build_html_data(std::ifstream& file)
+{
+	//seekg/tellg are extremely fast to read data
+	file.seekg(0, std::ios::end);
+	size_t size = file.tellg();
+
+	if(DEBUG)
+	{
+		std::cerr << "------read_and_build_html_data size:" << size<< std::endl;
+	}
+
+
+	std::string buffer(size, ' ');
+	file.seekg(0);
+	file.read(&buffer[0], size);
+
+	if(DEBUG)
+	{
+		std::cerr << "------default buffer:" << buffer << std::endl;
+	}
+
+	std::stringstream ss;
+	ss << header<<size<<"\n\n"<<buffer<<std::endl;
+
+	return ss.str();
+
+}
+
+void sendData(int client_sock_local, std::string msg )
+{
+	const char * c_msg = msg.c_str();
+
+	if (send(client_sock_local, c_msg, strlen(c_msg), 0) == -1)
+		{
+			std::perror("send");
+		}
+		else
+		{
+			if(DEBUG)
+			{
+				std::cerr << "--------------DATA SEND--------------" << std::endl;
+				std::cerr <<"!!!!!!!!!"<< msg << std::endl;
+			}
+		}
 }

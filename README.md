@@ -1,6 +1,6 @@
 # Jerry
 
-A basic skeleton for a Multi-threading HTTP Server with Blocking I/O that prints a "Hello World!" message to the clients
+A basic structure for a Multi-threading HTTP Server with Blocking I/O that parses part of GET request and sends to browser the requested page
 
 ## Getting Started
 
@@ -8,13 +8,14 @@ First you need to know that the name of the project come from (it seems ironical
 
 Second this is just for fun and I did it to familiarize myself with the C/C++ language and briefly understand how networking and threads work with it.
 
-It is build with GCC and Linux, I don't know if this works on other machines (Windows, MSVC etc..)
+It is build with GCC and Linux, I don't know if it works on other machines (Windows, MSVC etc..) and probably it doesn't 
 
 ### Architecture
 First I wrote it with each request having its own process ( a lot of forking ) and then I thought, why not threads?! So...
 
 The main() thread initiates the sever socket (creates, binds and setup the listener) and then creates a separate thread that accepts the clients. 
-Then the thread that does the accept, spawns a thread for each client that does the handling for them( actually waits for the request and responds with a hello world message)
+Then the thread that does the accept, spawns a thread for each client that does the handling for them. The server waits for the GET request, which reads partially( ToDo: complete the parser) and responds with the requested contents of the page, if the page exists, else sends a failure message.
+If no specific page is requested from the client(eg. localhost:8080/) the server loads the index.html file( again if it exists)
 
 This is just a design I pick to reach my goals. Other possibly more efficient designs could be async I/O with threads, blocking I/O thread pools, separate process to track, non-blocking multiplexing I/O with epoll/poll/select and so on...
 
@@ -27,13 +28,13 @@ By default I have set the debugging messages to off and the port to 8080. In cas
 Now, in order to have the project up and running there is not much work to do just compile and run the source
 
 ```
-g++ -std=c++17 jerry.cpp handlers.cpp -lpthread -o jerry_the_http_server
+g++ -std=c++17 jerry.cpp handlers.cpp HttpParser.cpp -lpthread -o jerry_the_http_server
 ```
 
 or if you want further debugging info
 
 ```
-g++ -std=c++17 jerry.cpp handlers.cpp -lpthread -o jerry_the_http_server -ggdb3 //Note that -ggdb3 works only/best with gdb
+g++ -std=c++17 jerry.cpp handlers.cpp HttpParser.cpp -lpthread -o jerry_the_http_server -ggdb3 //Note that -ggdb3 works only/best with gdb
 ```
 and run it
 
@@ -47,10 +48,22 @@ and run it
 
 ## Built With
 
-Pure C
+C/C++
 
 ## Testing
-At this point I should probably add some unit tests...I know,I know TDD etc.. but for now I just benchmark it with [Apache Benchmark](https://httpd.apache.org/docs/2.4/programs/ab.html)
+At this point I should probably add more unit tests...I know,I know TDD etc.. 
+
+As a unit-testing framework I am using [Catch](https://github.com/catchorg/Catch2) by Phil Nash which is pretty straightforward and excellent!
+
+To run the tests use this
+'''
+cd test
+'''
+'''
+g++ -std=c++17 ../handlers.cpp ../HttpParser.cpp tests.cpp -lpthread -o tests
+'''
+
+For benchmarking I used [Apache Benchmark](https://httpd.apache.org/docs/2.4/programs/ab.html)
 
 An Example command
 ```
@@ -77,6 +90,40 @@ Since this is an HTTP Server you might also need to test this in your browser(du
 http://localhost:8080/
 ```
 
+actually the above request triggers the index.html file, so you can do this also
+```
+http://localhost:8080/index.html
+```
+
+or browse the contents of the project like
+```
+http://localhost:8080/jerry.c
+```
+
+or even create your own html file while the server is running and request this
+```
+vim myhtml.html// vim is good
+write <H1>Hello World from Jerry!!</> and then
+http://localhost:8080/myhtml.html
+```
+
+## ToDo
+1. At this point maybe a makefile is needed
+
+2. Create a better logging system
+
+3. Redesign and actually implement a proper parser
+
+4. Add probably configurable restrictions
+
+and many more!!
+
+
+## Known Issues
+1. Jerry will fail if you try to access directly a folder (core dump) like test or /home/
+
+2. There are plenty more issues that needs fixing, but again this is a hobby/fun/learning project
+
 ## Valgrind
 In case you use valgrind you might see something like the below log. Do not worry, these are not actual leaks.
 
@@ -88,6 +135,9 @@ Most probably you stopped the application with a SIGINT (Ctrl-c) (actually that'
 Issue 2
 72,704 bytes in 1 blocks are still reachable in loss record 2 of 2
 This is because of <iostream> lib which handles on its own the memory that has allocated and the valgrind sees it as a leak.
+
+Issue 3 
+You might see also allocations from static variables/functions these also are not an issue
 
 In case you see something else then... well... It's your fault! No, I am kidding, most probably is an actual leakage and I would be happy(not so much) to let me know
 
