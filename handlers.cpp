@@ -17,6 +17,8 @@
 #include <fstream>
 #include <streambuf>
 #include <sstream>
+#include <sys/stat.h>
+#include <exception>
 
 #include "handlers.h"
 #include "HttpParser.h"
@@ -24,7 +26,8 @@
 
 
 static void sendData(int client_sock_local, std::string msg );
-static std::string read_and_build_html_data(std::ifstream& file);
+static std::string read_and_build_html_data(std::ifstream& file) throw(std::length_error);
+static bool is_path_file(std::string path);
 
 
 static std::string fail_msg = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: 29\n\n<H1>Not a valid Request!</H1>";
@@ -41,7 +44,7 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*) sa)->sin6_addr);
 }
 
-//the function that the client handling thread is executing
+//serve client function
 void *tClient(void* client_sock)
 {
 	int client_sock_local = *((int*)client_sock);
@@ -59,9 +62,10 @@ void *tClient(void* client_sock)
 	numbytes = recv(client_sock_local, buffer, MAXDATASIZE - 1, 0);
 	if ( numbytes <= 0)
 	{
+		//peer has performed an orderly shutdown
 		if( numbytes == 0)
 		{
-			std::perror("Server: recv null msg ");
+			std::perror("Server: recv peer has performed an orderly shutdown ");
 		}
 		else
 		{
@@ -82,11 +86,12 @@ void *tClient(void* client_sock)
 		std::cerr << "client sent: " << parse_req.getRequest() << "\n" << std::endl;
 		std::cerr << "client sent method:" << parse_req.getMethodName() << std::endl;
 		std::cerr << "client sent path:" << parse_req.getPath() << std::endl;
+		std::cerr << "client sent path isempty:" << parse_req.getPath().empty() << std::endl;
 		std::cerr << "client sent protocol: " << parse_req.getProtocol()<<"\n\n" << std::endl;
 	}
 
 	//ToDo isReqValid
-	//In case of a http request directly on folder (eg. test)  will create a core dump because seekg/tellg
+	//In case of a http request directly on folder (eg. test or / )  will create a core dump because seekg/tellg
 	//will be invalid so the size will be invalid. Either change seekg/tellg or guarded properly, maybe to restrict rights
 	//Currently to guard from the core dump a restriction for the "test" folder is used but needs fixing!!!
 	if( !parse_req.isReqValid() )
@@ -98,11 +103,16 @@ void *tClient(void* client_sock)
 		return NULL;// connection closed, nothing to do so return
 	}
 
-	//THIS SHOULD BE DELETED JUST A TEMPORARY GUARD
-	//Also other variations will core dump, like test/ test// /home/ etc..
-	if( parse_req.getPath()=="test" || parse_req.getPath()=="test/")
+	//check if the path is a file and if not send an error response
+	if( !is_path_file(parse_req.getPath()) )
 	{
 		//ToDo Send a proper Response
+
+		if(DEBUG)
+		{
+			std::cerr << "path:" << parse_req.getPath() << " NOT A FILE\n" << std::endl;
+		}
+
 		sendData( client_sock_local, fail_msg );
 		close(client_sock_local);
 		return NULL;// connection closed, nothing to do so return
@@ -128,7 +138,22 @@ void *tClient(void* client_sock)
 
 		if (file.is_open())
 		{
-			html_page = read_and_build_html_data(file);
+			try
+			{
+				html_page = read_and_build_html_data(file);
+			}
+			catch (const std::length_error& e)
+			{
+				if(DEBUG)
+				{
+					std::cerr << "Exception occured:" <<e.what()<< "\n" << std::endl;
+				}
+				sendData( client_sock_local, fail_msg );
+				close(client_sock_local);
+				return NULL;// connection closed, nothing to do so return
+
+			}
+
 		}
 
 	}
@@ -160,7 +185,22 @@ void *tClient(void* client_sock)
 
 		if (index.is_open())
 		{
-			html_page = read_and_build_html_data(index);
+			try
+			{
+				html_page = read_and_build_html_data(index);
+			}
+			catch (const std::length_error& e)
+			{
+				if(DEBUG)
+				{
+					std::cerr << "Exception occured(index):" <<e.what()<< "\n" << std::endl;
+				}
+				sendData( client_sock_local, fail_msg );
+				close(client_sock_local);
+				return NULL;// connection closed, nothing to do so return
+
+			}
+
 		}
 
 
@@ -245,12 +285,13 @@ void *handleClient(void* server_sock_val)
 			}
 			else
 			{
+				std::perror("handleClient: pthread_create: fail");
+				close(*p_clientSock);
+
 				if(p_clientSock != nullptr)
 				{
 					delete (int*)p_clientSock;
 				}
-				std::perror("handleClient: pthread_create: fail");
-				close(*p_clientSock);
 			}
 
 		}
@@ -266,7 +307,7 @@ void *handleClient(void* server_sock_val)
 	}
 }
 
-std::string read_and_build_html_data(std::ifstream& file)
+std::string read_and_build_html_data(std::ifstream& file) throw(std::length_error)
 {
 	//seekg/tellg are extremely fast to read data
 	file.seekg(0, std::ios::end);
@@ -310,4 +351,22 @@ void sendData(int client_sock_local, std::string msg )
 				std::cerr <<"!!!!!!!!!"<< msg << std::endl;
 			}
 		}
+	//added delay to keep the socket open
+	sleep(1);
+}
+
+//checks if the given path is a regular file
+bool is_path_file(std::string path_value)
+{
+	const char * path = path_value.c_str();
+	struct stat s;
+	if( stat(path,&s) == 0 )
+	{
+		if( s.st_mode & S_IFREG )//S_IFDIR//for directory
+		{
+			return true;
+		}
+	}
+	return false;
+
 }
