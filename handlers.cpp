@@ -76,10 +76,12 @@ void *handleClient(void* client_sock)
 	}
 
 
-	int result = res.sendData(html_page);
+	res.sendData(html_page);
 
 	//close the connection
 	closeConn(clientSocket);
+
+	return NULL;
 
 }
 

@@ -32,6 +32,34 @@ By default I have set the debugging messages to off and the port to 8080. In cas
 
 Now, in order to have the project up and running there is not much work to do just compile and run the source
 
+build both server and tests
+```
+make all
+./jerry_the_http_server //to run the server
+```
+
+build only the server code 
+```
+make jerry
+```
+
+build only tests 
+```
+make tests
+```
+
+run tests 
+```
+make runtests
+```
+
+clean the project
+```
+make clean
+```
+
+An other way which might not be applicable anymore:
+
 ```
 g++ -std=c++17 jerry.cpp handlers.cpp HttpRequest.cpp HttpResponse.cpp -lpthread -o jerry_the_http_server
 ```
