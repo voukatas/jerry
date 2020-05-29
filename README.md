@@ -11,16 +11,18 @@ Second this is just for fun and I did it to familiarize myself with the C/C++ la
 It is build with GCC and Linux, I don't know if it works on other machines (Windows, MSVC etc..) and probably it doesn't 
 
 ### Architecture
-First I wrote it with each request having its own process ( a lot of forking ) and then I thought, why not threads?! So...
+First I wrote it using C and with each request having its own process ( a lot of forking ) and then I thought, why not threads?! So...
 
 The main() thread initiates the sever socket (creates, binds and setup the listener) and then creates a separate thread that accepts the clients.
-Then the thread that does the accept, spawns a thread for each client that does the handling for them.
+Then the thread that accepts clients, spawns a thread for each client and handles him.
 
 The server waits for the GET request, which reads partially( ToDo: complete the parser) and responds with the requested contents of the page, if that page exists, else it sends a failure message to the client.
 
 If no specific page is requested from the client(eg. localhost:8080/) the server loads the index.html file
 
 This is just a design I pick to reach my goals. Other possibly more efficient designs could be async I/O with threads, blocking I/O thread pools, separate process to track, non-blocking multiplexing I/O with epoll/poll/select and so on...
+
+Maybe I will change to a [thread pool](https://github.com/voukatas/ThreadPool) that I wrote for this project some day
 
 By default I have set the debugging messages to off and the port to 8080. In case you want a different setup change the below options in the config.h before compiling.
 ```
@@ -31,13 +33,13 @@ By default I have set the debugging messages to off and the port to 8080. In cas
 Now, in order to have the project up and running there is not much work to do just compile and run the source
 
 ```
-g++ -std=c++17 jerry.cpp handlers.cpp HttpParser.cpp -lpthread -o jerry_the_http_server
+g++ -std=c++17 jerry.cpp handlers.cpp HttpRequest.cpp HttpResponse.cpp -lpthread -o jerry_the_http_server
 ```
 
 or if you want further debugging info
 
 ```
-g++ -std=c++17 jerry.cpp handlers.cpp HttpParser.cpp -lpthread -o jerry_the_http_server -ggdb3 //Note that -ggdb3 works only/best with gdb
+g++ -std=c++17 jerry.cpp handlers.cpp HttpRequest.cpp HttpResponse.cpp -lpthread -o jerry_the_http_server -ggdb3 //Note that -ggdb3 works only/best with gdb
 ```
 and run it
 
@@ -63,7 +65,7 @@ To run the tests use this
 cd test
 ```
 ```
-g++ -std=c++17 ../handlers.cpp ../HttpParser.cpp tests.cpp -lpthread -o tests
+g++ -std=c++17 ../handlers.cpp ../HttpRequest.cpp ../HttpResponse.cpp tests.cpp -lpthread -o tests
 ```
 
 For benchmarking I used [Apache Benchmark](https://httpd.apache.org/docs/2.4/programs/ab.html)
@@ -119,11 +121,13 @@ http://localhost:8080/myhtml.html
 
 4. Add probably configurable restrictions
 
+5. Add cause code mapping
+
 and many more!!
 
 
 ## Known Issues
-1. Jerry will fail if you try to access directly a folder (core dump) like test or /home/
+1. Jerry will fail if you try to access directly a folder (core dump) like test or /home/ --> fixed
 
 2. There are plenty more issues that needs fixing, but again this is a hobby/fun/learning project
 

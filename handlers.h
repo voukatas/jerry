@@ -6,5 +6,5 @@
  */
 #pragma once
 void *get_in_addr(struct sockaddr *);
-void *tClient(void* );
 void *handleClient(void* );
+void *listener(void* );

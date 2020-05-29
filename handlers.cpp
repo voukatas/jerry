@@ -4,218 +4,87 @@
  *  Created on: May 13, 2020
  *      Author: voukatas
  */
-#include <iostream>
 #include <cstdio>
-#include <stdlib.h>
+#include <iostream>
 #include <unistd.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include <fstream>
-#include <streambuf>
-#include <sstream>
-#include <sys/stat.h>
-#include <exception>
 
 #include "handlers.h"
-#include "HttpParser.h"
+#include "HttpRequest.h"
+#include "HttpResponse.h"
 #include "config.h"
 
 
-static void sendData(int client_sock_local, std::string msg );
-static std::string read_and_build_html_data(std::ifstream& file) throw(std::length_error);
-static bool is_path_file(std::string path);
+static std::string fail_msg = "HTTP/1.1 500 Internal Server Error\nContent-Type: text/html\nContent-Length: 29\n\n<H1>Not a valid Request!</H1>";
 
-
-static std::string fail_msg = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: 29\n\n<H1>Not a valid Request!</H1>";
-static std::string header = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: ";
-
+//close connection
+static void closeConn(int clientSocket);
 //socket address IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa)
-{
-	if (sa->sa_family == AF_INET)
-	{
-		return &(((struct sockaddr_in*) sa)->sin_addr);
-	}
-
-	return &(((struct sockaddr_in6*) sa)->sin6_addr);
-}
+void *get_in_addr(struct sockaddr *sa);
 
 //serve client function
-void *tClient(void* client_sock)
+void *handleClient(void* client_sock)
 {
-	int client_sock_local = *((int*)client_sock);
+	int clientSocket = *((int*)client_sock);
 	//free the previously allocated int
 	delete (int*)client_sock;
 
+	HttpRequest req{clientSocket};
+	HttpResponse res{clientSocket};
 
-	char buffer[MAXDATASIZE] = { 0 };
-	int numbytes;
-	//std::string msg = "HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: 21\n\n<H1>Hello World!</H1>";
+	int cause = req.readData();//0 for success
 
-	std::string html_page;
-
-	//wait data from the client
-	numbytes = recv(client_sock_local, buffer, MAXDATASIZE - 1, 0);
-	if ( numbytes <= 0)
+	if(cause != 0)
 	{
-		//peer has performed an orderly shutdown
-		if( numbytes == 0)
-		{
-			std::perror("Server: recv peer has performed an orderly shutdown ");
-		}
-		else
-		{
-			std::perror("Server: recv");
-		}
-		close(client_sock_local);
+		//no need to use closeConn, we do not need to close conn gracefully
+		//readData closes the conn immediately
+		return NULL;
+	}
+
+	req.parseReq();
+
+	if(req.isReqValid() != 0)
+	{
+		res.sendData(fail_msg);
+		closeConn(clientSocket);
 		return NULL;// connection closed, nothing to do so return
 	}
 
-	//set the last byte to NUL termination string
-	buffer[numbytes] = '\0';
-
-	HttpParser parse_req{buffer};
+	std::string path = req.getPath().empty()?"index.html":req.getPath();
 
 	if(DEBUG)
 	{
-		std::cerr << "isReqValid:" << parse_req.isReqValid() << "\n" << std::endl;
-		std::cerr << "client sent: " << parse_req.getRequest() << "\n" << std::endl;
-		std::cerr << "client sent method:" << parse_req.getMethodName() << std::endl;
-		std::cerr << "client sent path:" << parse_req.getPath() << std::endl;
-		std::cerr << "client sent path isempty:" << parse_req.getPath().empty() << std::endl;
-		std::cerr << "client sent protocol: " << parse_req.getProtocol()<<"\n\n" << std::endl;
+		std::cerr << "handlers: path = " << path << "\n" << std::endl;
+		std::cerr << "handlers: req.getPath().empty() = " << req.getPath().empty() << "\n" << std::endl;
+		std::cerr << "handlers: req.getPath() = " << req.getPath() << "\n" << std::endl;
 	}
 
-	//ToDo isReqValid
-	//In case of a http request directly on folder (eg. test or / )  will create a core dump because seekg/tellg
-	//will be invalid so the size will be invalid. Either change seekg/tellg or guarded properly, maybe to restrict rights
-	//Currently to guard from the core dump a restriction for the "test" folder is used but needs fixing!!!
-	if( !parse_req.isReqValid() )
-	{
-		//ToDo Send a proper Response
+	std::string html_page;
 
-		sendData( client_sock_local, fail_msg );
-		close(client_sock_local);
+	try
+	{
+		res.readHtml(path,&html_page);
+//		html_page = res.readHtml(path);
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << "handlers: exception = " << e.what() << "\n" << std::endl;
+		res.sendData(fail_msg);
+		closeConn(clientSocket);
 		return NULL;// connection closed, nothing to do so return
 	}
 
-	//check if the path is a file and if not send an error response
-	if( !is_path_file(parse_req.getPath()) )
-	{
-		//ToDo Send a proper Response
 
-		if(DEBUG)
-		{
-			std::cerr << "path:" << parse_req.getPath() << " NOT A FILE\n" << std::endl;
-		}
-
-		sendData( client_sock_local, fail_msg );
-		close(client_sock_local);
-		return NULL;// connection closed, nothing to do so return
-	}
-
-	if(!parse_req.getPath().empty())
-	{
-		//Read from the specified file
-
-		std::ifstream file{parse_req.getPath()};
-		if (file.fail())
-		{
-			if(DEBUG)
-			{
-				std::cerr << "failed to open file:" << parse_req.getPath() << "\n" << std::endl;
-			}
-		    // file could not be opened
-			sendData( client_sock_local, fail_msg );
-			close(client_sock_local);
-			return NULL;// connection closed, nothing to do so return
-
-		}
-
-		if (file.is_open())
-		{
-			try
-			{
-				html_page = read_and_build_html_data(file);
-			}
-			catch (const std::length_error& e)
-			{
-				if(DEBUG)
-				{
-					std::cerr << "Exception occured:" <<e.what()<< "\n" << std::endl;
-				}
-				sendData( client_sock_local, fail_msg );
-				close(client_sock_local);
-				return NULL;// connection closed, nothing to do so return
-
-			}
-
-		}
-
-	}
-
-
-	//Client Requested the default path
-	if(parse_req.getPath().empty())
-	{
-		//Read from index.html
-		if(DEBUG)
-		{
-			std::cerr << "Client Requested the default path:" << "\n" << std::endl;
-		}
-
-		std::ifstream index{"index.html"};
-
-		if (index.fail())
-		{
-			if(DEBUG)
-			{
-				std::cerr << "failed to open file:" << "index.html" << "\n" << std::endl;
-			}
-		    // file could not be opened
-			sendData( client_sock_local, fail_msg );
-			close(client_sock_local);
-			return NULL;// connection closed, nothing to do so return
-
-		}
-
-		if (index.is_open())
-		{
-			try
-			{
-				html_page = read_and_build_html_data(index);
-			}
-			catch (const std::length_error& e)
-			{
-				if(DEBUG)
-				{
-					std::cerr << "Exception occured(index):" <<e.what()<< "\n" << std::endl;
-				}
-				sendData( client_sock_local, fail_msg );
-				close(client_sock_local);
-				return NULL;// connection closed, nothing to do so return
-
-			}
-
-		}
-
-
-	}
-
-	//send data to client
-	sendData( client_sock_local, html_page );
+	int result = res.sendData(html_page);
 
 	//close the connection
-	close(client_sock_local);
+	closeConn(clientSocket);
 
 }
 
-//the function that the thread that does the accept executes
-void *handleClient(void* server_sock_val)
+//accept connections thread
+void *listener(void* server_sock_val)
 {
 
 	//needs casting since it is void
@@ -270,7 +139,7 @@ void *handleClient(void* server_sock_val)
 		{
 			pthread_t th_conn;
 
-			if ((pthread_create(&th_conn, NULL, &tClient, p_clientSock)) == 0)
+			if ((pthread_create(&th_conn, NULL, &handleClient, p_clientSock)) == 0)
 			{
 				if(DEBUG)
 				{
@@ -307,66 +176,19 @@ void *handleClient(void* server_sock_val)
 	}
 }
 
-std::string read_and_build_html_data(std::ifstream& file) throw(std::length_error)
+//not the best practice but currently it does the job
+static void closeConn(int clientSocket)
 {
-	//seekg/tellg are extremely fast to read data
-	file.seekg(0, std::ios::end);
-	size_t size = file.tellg();
-
-	if(DEBUG)
-	{
-		std::cerr << "------read_and_build_html_data size:" << size<< std::endl;
-	}
-
-
-	std::string buffer(size, ' ');
-	file.seekg(0);
-	file.read(&buffer[0], size);
-
-	if(DEBUG)
-	{
-		std::cerr << "------default buffer:" << buffer << std::endl;
-	}
-
-	std::stringstream ss;
-	ss << header<<size<<"\n\n"<<buffer<<std::endl;
-
-	return ss.str();
-
+	shutdown(clientSocket,SHUT_RDWR);
+	close(clientSocket);
 }
 
-void sendData(int client_sock_local, std::string msg )
+void *get_in_addr(struct sockaddr *sa)
 {
-	const char * c_msg = msg.c_str();
-
-	if (send(client_sock_local, c_msg, strlen(c_msg), 0) == -1)
-		{
-			std::perror("send");
-		}
-		else
-		{
-			if(DEBUG)
-			{
-				std::cerr << "--------------DATA SEND--------------" << std::endl;
-				std::cerr <<"!!!!!!!!!"<< msg << std::endl;
-			}
-		}
-	//added delay to keep the socket open
-	sleep(1);
-}
-
-//checks if the given path is a regular file
-bool is_path_file(std::string path_value)
-{
-	const char * path = path_value.c_str();
-	struct stat s;
-	if( stat(path,&s) == 0 )
+	if (sa->sa_family == AF_INET)
 	{
-		if( s.st_mode & S_IFREG )//S_IFDIR//for directory
-		{
-			return true;
-		}
+		return &(((struct sockaddr_in*) sa)->sin_addr);
 	}
-	return false;
 
+	return &(((struct sockaddr_in6*) sa)->sin6_addr);
 }

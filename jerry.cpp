@@ -23,7 +23,7 @@ int main()
 
 	int server_sock;  						// listen on server_sock
 	struct addrinfo addr_info, *ptr_serv_info, *p;
-	int yes = 1;							// option to restart the server immediately
+	int restart = 1;							// option to restart the server immediately
 	int rv;
 
 	memset(&addr_info, 0, sizeof addr_info);
@@ -46,7 +46,7 @@ int main()
 			continue;
 		}
 
-		if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
+		if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &restart, sizeof(int)) == -1)
 		{
 			std::perror("setsockopt");
 			exit(-1);
@@ -79,7 +79,7 @@ int main()
 
 	//create the thread that will accept connections
 	pthread_t th_accept;
-	if ((pthread_create(&th_accept, NULL, &handleClient, &server_sock)) == 0)
+	if ((pthread_create(&th_accept, NULL, &listener, &server_sock)) == 0)
 	{
 		std::cerr << "Server started : server_sock = " << server_sock << std::endl;
 		std::cerr << "Waiting for connections..." << std::endl;

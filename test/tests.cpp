@@ -3,62 +3,73 @@
 #include <iostream>
 #include "catch.hpp"
 #include "../handlers.h"
-#include "../HttpParser.h"
+#include "../HttpRequest.h"
 
 
 TEST_CASE( "GET Method Tests")
 {
-	HttpParser parse_req0{"GET /test HTTP/1.1"};
-	HttpParser parse_req1{"GET /favicon.ico HTTP/1.1"};
-	HttpParser parse_req2{"GET / HTTP/1.1"};
-	HttpParser parse_req3{"GET/ HTTP/1.1"};//malformed
-	HttpParser parse_req4{"GET /HTTP/1.1"};//malformed
-	HttpParser parse_req5{"GET/HTTP/1.1"};//malformed
-	HttpParser parse_req6{"GET  / HTTP/1.1"};//malformed
-	HttpParser parse_req7{"HTTP/1.1"};//malformed
-	HttpParser parse_req8{"GET / HTTP"};//malformed
+	int clientSocket{4};
+	HttpRequest httpRequest0{clientSocket};
+	httpRequest0.setRequest("GET /test HTTP/1.1");
+	httpRequest0.parseReq();
 
-	SECTION("Get method name")
+	HttpRequest httpRequest1{clientSocket};
+	httpRequest1.setRequest("GET /favicon.ico HTTP/1.1");
+	httpRequest1.parseReq();
+
+	HttpRequest httpRequest2{clientSocket};
+	httpRequest2.setRequest("GET / HTTP/1.1");
+	httpRequest2.parseReq();
+
+	HttpRequest httpRequest3{clientSocket};
+	httpRequest3.setRequest("GET /../index.html HTTP/1.1");
+	httpRequest3.parseReq();
+
+
+//	HttpRequest httpRequest3.setRequest("GET/ HTTP/1.1");//malformed
+//	HttpRequest httpRequest4.setRequest("GET /HTTP/1.1");//malformed
+//	HttpRequest httpRequest5.setRequest("GET/HTTP/1.1");//malformed
+//	HttpRequest httpRequest6.setRequest("GET  / HTTP/1.1");//malformed
+//	HttpRequest httpRequest7.setRequest("HTTP/1.1");//malformed
+//	HttpRequest httpRequest8.setRequest("GET / HTTP");//malformed
+
+	SECTION("Get request")
 	{
-		REQUIRE(parse_req0.getRequest() == "GET /test HTTP/1.1");
-		REQUIRE(parse_req1.getRequest() == "GET /favicon.ico HTTP/1.1");
-		REQUIRE(parse_req1.getRequest() != "GET/favicon.ico HTTP/1.1");
-		REQUIRE(parse_req2.getRequest() == "GET / HTTP/1.1");
-		REQUIRE(parse_req3.getRequest() != "GET / HTTP/1.1");
-
+		REQUIRE(httpRequest0.getRequest() == "GET /test HTTP/1.1");
+		REQUIRE(httpRequest1.getRequest() == "GET /favicon.ico HTTP/1.1");
+		REQUIRE(httpRequest2.getRequest() == "GET / HTTP/1.1");
 	}
 
 	SECTION("Get method name")
 	{
-		REQUIRE(parse_req0.getMethodName() == "GET");
-		REQUIRE(parse_req0.getMethodName() != "gET");
-		REQUIRE(parse_req3.getMethodName() == "GET");
+		REQUIRE(httpRequest0.getMethodName() == "GET");
+		REQUIRE(httpRequest1.getMethodName() != "gET");
+		REQUIRE(httpRequest2.getMethodName() == "GET");
 	}
 
 	SECTION("Get path")
 	{
-		REQUIRE(parse_req0.getPath() == "test");
-		REQUIRE(parse_req1.getPath() == "favicon.ico");
-		REQUIRE(parse_req2.getPath() == "");
+		REQUIRE(httpRequest0.getPath() == "test");
+		REQUIRE(httpRequest1.getPath() == "favicon.ico");
+		REQUIRE(httpRequest2.getPath() == "");
 	}
 
 	SECTION("Get protocol")
 	{
-		REQUIRE(parse_req0.getProtocol() == "HTTP/1.1");
-		REQUIRE(parse_req0.getProtocol() != "HTTP/");
+		REQUIRE(httpRequest0.getProtocol() == "HTTP/1.1");
+		REQUIRE(httpRequest0.getProtocol() != "HTTP/");
 	}
 
-	SECTION("Validate")
+	SECTION("Validate if regular file")
 	{
-//		REQUIRE(parse_req3.isReqValid() == false);
-//		REQUIRE(parse_req4.isReqValid() == false);
-//		REQUIRE(parse_req5.isReqValid() == false);
-//		REQUIRE(parse_req6.isReqValid() == false);
-//		REQUIRE(parse_req7.isReqValid() == false);
-//		REQUIRE(parse_req8.isReqValid() == false);
-		REQUIRE(parse_req0.isReqValid() == true);
-		REQUIRE(parse_req1.isReqValid() == true);
-		REQUIRE(parse_req2.isReqValid() == true);
+		REQUIRE(httpRequest0.isReqValid() == -1);
+		REQUIRE(httpRequest3.isReqValid() == 0);//true, cause 0 is success
+
+	}
+
+	SECTION("Validate GET request with regex")
+	{
+		//ToDo
 	}
 
 
