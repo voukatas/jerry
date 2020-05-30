@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <pthread.h>
+#include <signal.h>
 
 #include "handlers.h"
 #include "config.h"
@@ -46,6 +47,7 @@ int main()
 			continue;
 		}
 
+		//might also need SO_NOSIGPIPE for broken pipes
 		if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &restart, sizeof(int)) == -1)
 		{
 			std::perror("setsockopt");
@@ -76,6 +78,9 @@ int main()
 		std::perror("listen");
 		exit(-1);
 	}
+
+	//prevent process termination from broken pipes
+	signal(SIGPIPE, SIG_IGN);
 
 	//create the thread that will accept connections
 	pthread_t th_accept;
