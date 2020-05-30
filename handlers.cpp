@@ -64,7 +64,7 @@ void *handleClient(void* client_sock)
 
 	try
 	{
-		res.readHtml(path,&html_page);
+		res.readHtml(path,html_page);
 //		html_page = res.readHtml(path);
 	}
 	catch(const std::exception& e)
@@ -106,12 +106,12 @@ void *listener(void* server_sock_val)
 			struct sockaddr_storage their_addr; // connector's address information
 			socklen_t sin_size;
 			sin_size = sizeof their_addr;
-			char s[INET6_ADDRSTRLEN];
 
 			accept_fd = accept(server_sock_local, (struct sockaddr *) &their_addr, &sin_size);
 
 			if (accept_fd > 0)
 			{
+				char s[INET6_ADDRSTRLEN];
 				inet_ntop(their_addr.ss_family,get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
 				std::cerr << "Server: got connection from " << s << std::endl;
 			}
@@ -158,11 +158,8 @@ void *listener(void* server_sock_val)
 			{
 				std::perror("handleClient: pthread_create: fail");
 				close(*p_clientSock);
+				delete (int*)p_clientSock;
 
-				if(p_clientSock != nullptr)
-				{
-					delete (int*)p_clientSock;
-				}
 			}
 
 		}

@@ -41,7 +41,7 @@ int HttpResponse::sendData(std::string html)
 	//sleep(1);
 }
 
-void HttpResponse::readHtml(const std::string path, std::string* html_page)
+void HttpResponse::readHtml(const std::string& path, std::string& html_page)
 {
 	//Read from the specified file
 
@@ -62,7 +62,7 @@ void HttpResponse::readHtml(const std::string path, std::string* html_page)
 	{
 		try
 		{
-			*html_page = read_and_build_html_data(file);
+			html_page = read_and_build_html_data(file);
 		}
 		catch (const std::length_error& e)
 		{

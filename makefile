@@ -1,6 +1,6 @@
 CPPFLAGS=-std=c++17 -Wall -Wextra -ggdb3
 
-all: jerry tests
+all: jerry tests staticanalysis
 
 tests: test/catch.hpp test/tests.cpp config.h handlers.h HttpRequest.h handlers.o HttpRequest.o HttpResponse.o test.o
 	g++ HttpRequest.o HttpResponse.o handlers.o test/tests.o -lpthread -o test/tests
@@ -26,6 +26,9 @@ jerry.o: jerry.cpp config.h
      
 runtests: tests
 	cd test;./tests
+
+staticanalysis: jerry
+	cppcheck --enable=all -itest .
 
 clean:
 	 rm handlers.o HttpRequest.o HttpResponse.o jerry.o test/tests.o jerry_the_http_server test/tests

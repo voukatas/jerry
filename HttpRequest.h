@@ -16,7 +16,7 @@ private:
 	std::string protocol;
 
 public:
-	HttpRequest(int clientSocket);
+	explicit HttpRequest(int clientSocket);
 	virtual ~HttpRequest() = default;
 	int readData();
 	void parseReq();

@@ -58,7 +58,13 @@ clean the project
 make clean
 ```
 
-An other way which might not be applicable anymore:
+run a static analysis with cppcheck on server code only
+```
+make staticanalysis 
+```
+
+
+### An other way which might not be applicable anymore:
 
 ```
 g++ -std=c++17 jerry.cpp handlers.cpp HttpRequest.cpp HttpResponse.cpp -lpthread -o jerry_the_http_server
@@ -89,6 +95,14 @@ At this point I should probably add more unit tests...I know,I know TDD etc..
 As a unit-testing framework I am using [Catch](https://github.com/catchorg/Catch2) by Phil Nash which is pretty straightforward and excellent!
 
 To run the tests use this
+
+run tests 
+```
+make runtests
+```
+
+or an other way which might not be applicable anymore:
+
 ```
 cd test
 ```
