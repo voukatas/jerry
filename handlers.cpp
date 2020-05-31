@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <new>
 
 #include "handlers.h"
 #include "HttpRequest.h"
@@ -127,17 +128,22 @@ void *listener(void* server_sock_val)
 		if (accept_fd > 0)
 		{
 			//This is needed in order to avoid having the client socket overwritten from other request
-			p_clientSock = new int;
-			*p_clientSock = accept_fd;
+			p_clientSock = new(std::nothrow) int;
+
+			if(p_clientSock != nullptr)
+			{
+				*p_clientSock = accept_fd;
+			}
+
 		}
 
 
-		if(DEBUG && accept_fd > 0)
+		if(DEBUG && p_clientSock != nullptr)
 		{
 			std::cerr << "^^^handleClient: p_clientSock " << *p_clientSock << "\n" << std::endl;
 		}
 
-		if ((p_clientSock != nullptr) && (*p_clientSock > 0) )
+		if(p_clientSock != nullptr)// && (*p_clientSock > 0) )
 		{
 			pthread_t th_conn;
 
@@ -165,10 +171,12 @@ void *listener(void* server_sock_val)
 		}
 		else
 		{
-			if(p_clientSock != nullptr)
+			if(accept_fd > 0)
 			{
-				delete (int*)p_clientSock;
+				close(accept_fd);
+				std::cerr << "handleClient: failed to allocate memory, closing the socket" << std::endl;
 			}
+
 			std::perror("Server: accept");
 		}
 
