@@ -10,7 +10,7 @@
 
 #include <cstddef>
 
-enum class Mode{ ThreadPool, ThreadPerReq};
+#include "mode.h"
 
 void printServerInfo(int server_sock, std::size_t numOfThreads );
 
