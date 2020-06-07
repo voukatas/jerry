@@ -17,7 +17,10 @@
 
 #include "handlers.h"
 #include "config.h"
+#include "util.h"
 
+//thread pool git code https://github.com/voukatas/ThreadPool
+#include "ThreadPool.h"
 
 int main()
 {
@@ -82,22 +85,45 @@ int main()
 	//prevent process termination from broken pipes
 	signal(SIGPIPE, SIG_IGN);
 
-	//create the thread that will accept connections
-	pthread_t th_accept;
-	if ((pthread_create(&th_accept, NULL, &listener, &server_sock)) == 0)
+	if( THREADPOOL == 1)
 	{
-		std::cerr << "Server started : server_sock = " << server_sock << std::endl;
-		std::cerr << "Waiting for connections..." << std::endl;
+		std::size_t numOfThreads =  std::thread::hardware_concurrency();
 
-		//wait for thread
-		pthread_join(th_accept, NULL);
+		if(numOfThreads < 1)
+		{
+			numOfThreads = 1;
+		}
+
+		ThreadPoolSpace::ThreadPool workers{numOfThreads};
+
+		printServerInfo(server_sock,numOfThreads);
+
+		//create the arguments list
+		ListenerArgs args{server_sock,&workers,Mode::ThreadPool};		
+
+		//The function that executes an endless loop and accepts connections
+		listener(&args);
 	}
 	else
 	{
-		std::perror("main():pthread_create: fail");
+		//create the arguments list
+		ListenerArgs args{server_sock,nullptr,Mode::ThreadPerReq};
+
+		//create the thread that will accept connections
+		pthread_t th_accept;
+		if ((pthread_create(&th_accept, NULL, &listener, &args)) == 0)
+		{
+			printServerInfo(server_sock,0);
+
+			//wait for thread
+			pthread_join(th_accept, NULL);
+		}
+		else
+		{
+			std::perror("main():pthread_create: fail");
+		}
 	}
-
-
+	
 	close(server_sock);
 
 	return 0;

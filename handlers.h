@@ -5,6 +5,13 @@
  *      Author: voukatas
  */
 #pragma once
-void *get_in_addr(struct sockaddr *);
-void *handleClient(void* );
-void *listener(void* );
+
+#include "ThreadPool.h"
+#include "util.h"
+
+
+void *get_in_addr(struct sockaddr *sa);//socket address IPv4 or IPv6
+void *handleClient(void* client_sock);
+void *listener(void* args);
+
+

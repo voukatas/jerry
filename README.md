@@ -1,6 +1,6 @@
 # Jerry
 
-A basic structure for a Multi-threading HTTP Server with Blocking I/O that parses part of GET request and sends to browser the requested page
+A Multi-threaded HTTP Server with Blocking I/O
 
 ## Getting Started
 
@@ -13,16 +13,18 @@ It is build with GCC and Linux, I don't know if it works on other machines (Wind
 ### Architecture
 First I wrote it using C and with each request having its own process ( a lot of forking ) and then I thought, why not threads?! So...
 
-The main() thread initiates the sever socket (creates, binds and setup the listener) and then creates a separate thread that accepts the clients.
-Then the thread that accepts clients, spawns a thread for each client and handles him.
+You can choose between two modes, both multi-threaded, by configuring the config.h
+One mode is using a thread pool (set THREADPOOL = 1 inside config.h) and the other one just spawns a new thread for each request (set THREADPOOL = 0 inside config.h)
+
+The main() thread initiates the sever socket (creates, binds and setup the listener) and then spawns a thread for each client in case thread pool is disabled or if thread pool is enabled just add the new request to the pool for handling
 
 The server waits for the GET request, which reads partially( ToDo: complete the parser) and responds with the requested contents of the page, if that page exists, else it sends a failure message to the client.
 
 If no specific page is requested from the client(eg. localhost:8080/) the server loads the index.html file
 
-This is just a design I pick to reach my goals. Other possibly more efficient designs could be async I/O with threads, blocking I/O thread pools, separate process to track, non-blocking multiplexing I/O with epoll/poll/select and so on...
+This is just a design I pick to reach my goals. Other possibly designs could be async I/O with threads, non-blocking multiplexing I/O with epoll/poll/select and so on...
 
-Maybe I will change to a [thread pool](https://github.com/voukatas/ThreadPool) that I wrote for this project some day
+I eventually added a [thread pool](https://github.com/voukatas/ThreadPool) that I wrote for this project
 
 By default I have set the debugging messages to off and the port to 8080. In case you want a different setup change the below options in the config.h before compiling.
 ```

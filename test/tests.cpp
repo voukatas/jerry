@@ -4,6 +4,8 @@
 #include "catch.hpp"
 #include "../handlers.h"
 #include "../HttpRequest.h"
+#include "../util.h"
+#include "../ThreadPool.h"
 
 
 TEST_CASE( "GET Method Tests")

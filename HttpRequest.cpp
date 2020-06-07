@@ -101,14 +101,14 @@ void HttpRequest::parseReq()
 	std::string path_and_protocol = std::string(request,4);
 	std::size_t path_len = path_and_protocol.find(" ");
 	path = std::string(path_and_protocol,1,path_len-1);
-	protocol = std::string(path_and_protocol,path_len+1);
+	protocol = std::string(path_and_protocol,path_len+1,8);
 
 	if(DEBUG)
 	{
 		std::cerr << "client sent: " << request << "\n" << std::endl;
 		std::cerr << "client sent method:" << method_name << std::endl;
 		std::cerr << "client sent path:" << path << std::endl;
-		std::cerr << "client sent protocol: " << protocol<<"\n\n" << std::endl;
+		std::cerr << "client sent protocol:" << protocol<<"\n\n" << std::endl;		
 	}
 
 }

@@ -15,14 +15,13 @@
 #include "HttpRequest.h"
 #include "HttpResponse.h"
 #include "config.h"
-
+#include "ThreadPool.h"
+#include "util.h"
 
 static std::string fail_msg = "HTTP/1.1 500 Internal Server Error\nContent-Type: text/html\nContent-Length: 29\n\n<H1>Not a valid Request!</H1>";
 
 //close connection
 static void closeConn(int clientSocket);
-//socket address IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa);
 
 //serve client function
 void *handleClient(void* client_sock)
@@ -86,13 +85,20 @@ void *handleClient(void* client_sock)
 
 }
 
-//accept connections thread
-void *listener(void* server_sock_val)
-{
-
+//accept connections thread where each request run on a new thread
+void *listener(void* listenerArgs)
+{	
+	ListenerArgs* args = reinterpret_cast<ListenerArgs*>(listenerArgs);
+	int server_sock_local = args->server_sock;
+	Mode mode = args->mode;
 	//needs casting since it is void
-	int server_sock_local = *((int*)server_sock_val);
-
+	//ThreadPool& workers = *((ThreadPool*)args->workers);
+	ThreadPoolSpace::ThreadPool* workers = nullptr;
+	if(args->workers!=nullptr)
+	{
+		workers = reinterpret_cast<ThreadPoolSpace::ThreadPool*>(args->workers);
+	}
+	
 
 	while (1)
 	{
@@ -143,30 +149,60 @@ void *listener(void* server_sock_val)
 			std::cerr << "^^^handleClient: p_clientSock " << *p_clientSock << "\n" << std::endl;
 		}
 
-		if(p_clientSock != nullptr)// && (*p_clientSock > 0) )
+		if(p_clientSock != nullptr)
 		{
-			pthread_t th_conn;
-
-			if ((pthread_create(&th_conn, NULL, &handleClient, p_clientSock)) == 0)
+			//check in which mode the server runs
+			if(mode == Mode::ThreadPool)
 			{
 				if(DEBUG)
 				{
-					std::cerr << "handleClient: A new thread connection created. Socket:" << *p_clientSock << std::endl;
+					std::cerr << "server runs in ThreadPool mode" << std::endl;
 				}
-
-				//This is needed to free the thread resources but pthread_detach is faster,
-				//we don't want to wait so go with that
-				//pthread_join(clientThread, NULL);
-				pthread_detach(th_conn);
-
+				if(workers!=nullptr)
+				{
+					(*workers).addJob([=] () { handleClient((void*)p_clientSock); });
+				}
+				else
+				{
+					if(DEBUG)
+					{
+						std::cerr << "Something went terribly wrong, ThreadPool is null" << std::endl;
+					}
+					exit(-1);
+				}
+				
 			}
 			else
 			{
-				std::perror("handleClient: pthread_create: fail");
-				close(*p_clientSock);
-				delete (int*)p_clientSock;
+				if(DEBUG)
+				{
+					std::cerr << "server runs in THreadPerReq mode" << std::endl;
+				}
 
+				pthread_t th_conn;
+
+				if ((pthread_create(&th_conn, NULL, &handleClient, p_clientSock)) == 0)
+				{
+					if(DEBUG)
+					{
+						std::cerr << "handleClient: A new thread connection created. Socket:" << *p_clientSock << std::endl;
+					}
+
+					//This is needed to free the thread resources but pthread_detach is faster,
+					//we don't want to wait so go with that
+					//pthread_join(clientThread, NULL);
+					pthread_detach(th_conn);
+
+				}
+				else
+				{
+					std::perror("handleClient: pthread_create: fail");
+					close(*p_clientSock);
+					delete (int*)p_clientSock;
+
+				}
 			}
+
 
 		}
 		else
