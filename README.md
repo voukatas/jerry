@@ -16,20 +16,24 @@ First I wrote it using C and with each request having its own process ( a lot of
 You can choose between two modes, both multi-threaded, by configuring the config.h
 One mode is using a thread pool (set THREADPOOL = 1 inside config.h) and the other one just spawns a new thread for each request (set THREADPOOL = 0 inside config.h)
 
-The main() thread initiates the sever socket (creates, binds and setup the listener) and then spawns a thread for each client in case thread pool is disabled or if thread pool is enabled just add the new request to the pool for handling
+The main() thread initiates the sever socket (creates, binds and setup the listener) and then spawns a thread for each client in case thread pool is disabled or if thread pool is enabled just adds the new request to the pool for handling
 
 The server waits for the GET request, which reads partially( ToDo: complete the parser) and responds with the requested contents of the page, if that page exists, else it sends a failure message to the client.
 
-If no specific page is requested from the client(eg. localhost:8080/) the server loads the index.html file
+If no specific page is requested (eg. localhost:8080/) the server loads the index.html file
 
-This is just a design I pick to reach my goals. Other possibly designs could be async I/O with threads, non-blocking multiplexing I/O with epoll/poll/select and so on...
+This is just a design I picked to reach my goals. Other possibly designs could be async I/O with threads, non-blocking multiplexing I/O with epoll/poll/select and so on...
 
 I eventually added a [thread pool](https://github.com/voukatas/ThreadPool) that I wrote for this project
 
-By default I have set the debugging messages to off and the port to 8080. In case you want a different setup change the below options in the config.h before compiling.
+By default the logger is set to loglevel TRACE and the port the server runs to 8080. In case you want a different setup change the below options in the config.h before compiling.
 ```
-#define PORT "8080" 
-#define DEBUG 0     //set this to 1 for debug logs, in case you are going to test with Apache Bench it will be better to leave them disabled
+#define PORT "8080"  // the port users will be connecting to
+#define BACKLOG 20	 // how many pending connections the queue will hold
+#define MAXDATASIZE 200 // the maximum number of data tha we can receive from the client
+#define THREADPOOL 1 //set this to 1 to use the thread pool else 0 to use the original implementation ( spawn a new thread per request )
+//in case you are going to test with Apache Bench it will be better to set ERROR
+#define LOGLEVEL Loglvl::TRACE //values to select: FATAL, ERROR, DEBUG, WARN, INFO, TRACE, NONE
 ``` 
 
 Now, in order to have the project up and running there is not much work to do just compile and run the source
@@ -96,9 +100,8 @@ At this point I should probably add more unit tests...I know,I know TDD etc..
 
 As a unit-testing framework I am using [Catch](https://github.com/catchorg/Catch2) by Phil Nash which is pretty straightforward and excellent!
 
-To run the tests use this
+To run the tests use
 
-run tests 
 ```
 make runtests
 ```
@@ -241,7 +244,7 @@ Killed
 
 
 ## Closure
-The whole project was implemented in order to further understand the above mentioned technologies. I decided to share it with everyone in case someone else out there needs to see how all these might work. Comments and fixes are all welcome, since they  will help me further understand how things work.
+The whole project was implemented in order to further understand the above mentioned technologies. I decided to share it with everyone in case someone else needs to see how all these might work. Comments and fixes are all welcome :)
 
 I am not sure if I ever going to extend this from this basic form.(but also I might, who knows)
 

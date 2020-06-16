@@ -14,10 +14,13 @@
 #include <netdb.h>
 #include <pthread.h>
 #include <signal.h>
+#include <cstring>
 
 #include "handlers.h"
 #include "config.h"
 #include "util.h"
+#include "Logger/Logger.h"
+#include "Logger/loglvl.h"
 
 //thread pool git code https://github.com/voukatas/ThreadPool
 #include "ThreadPool.h"
@@ -35,10 +38,22 @@ int main()
 	addr_info.ai_socktype = SOCK_STREAM;
 	addr_info.ai_flags = AI_PASSIVE; 			// use my IP
 
+	//initialize the logger
+	try
+	{
+		LoggerSpace::Logger::instance().log(LOGLEVEL,"Logging started");		
+	}
+	catch(const std::iostream::failure& e)
+	{
+		std::cerr << "Logger init failed, abort. " << e.what() << '\n';
+		exit(-1);
+	}
+	
+
 	if ((rv = getaddrinfo(NULL, PORT, &addr_info, &ptr_serv_info)) != 0)
 	{
-		std::cerr << "getaddrinfo: " << gai_strerror(rv) << std::endl;
-		return -1;
+		LoggerSpace::Logger::instance().log(Loglvl::FATAL,"main():getaddrinfo: " + std::string(gai_strerror(rv)));		
+		exit(-1);
 	}
 
 	// loop through all the results and bind to the first we can
@@ -46,21 +61,21 @@ int main()
 	{
 		if ((server_sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
 		{
-			std::perror("Server: server_sock");
+			LoggerSpace::Logger::instance().log(Loglvl::ERROR,"main():server_sock " + std::string(std::strerror(errno)));
 			continue;
 		}
 
 		//might also need SO_NOSIGPIPE for broken pipes
 		if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &restart, sizeof(int)) == -1)
 		{
-			std::perror("setsockopt");
+			LoggerSpace::Logger::instance().log(Loglvl::FATAL,"main():setsockopt " + std::string(std::strerror(errno)));
 			exit(-1);
 		}
 
 		if (bind(server_sock, p->ai_addr, p->ai_addrlen) == -1)
 		{
 			close(server_sock);
-			std::perror("Server: bind");
+			LoggerSpace::Logger::instance().log(Loglvl::ERROR,"main():bind " + std::string(std::strerror(errno)));
 			continue;
 		}
 
@@ -72,13 +87,13 @@ int main()
 
 	if (p == NULL)
 	{
-		std::cerr << "Server: failed to bind" << std::endl;
+		LoggerSpace::Logger::instance().log(Loglvl::FATAL,"main():failed to bind ");		
 		exit(-1);
 	}
 
 	if (listen(server_sock, BACKLOG) == -1)
 	{
-		std::perror("listen");
+		LoggerSpace::Logger::instance().log(Loglvl::FATAL,"main():listen " + std::string(std::strerror(errno)));
 		exit(-1);
 	}
 
@@ -120,7 +135,7 @@ int main()
 		}
 		else
 		{
-			std::perror("main():pthread_create: fail");
+			LoggerSpace::Logger::instance().log(Loglvl::ERROR,"main():pthread_create: fail " + std::string(std::strerror(errno)));			
 		}
 	}
 	

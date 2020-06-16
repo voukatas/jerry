@@ -10,6 +10,8 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <new>
+#include <errno.h>
+#include <cstring>
 
 #include "handlers.h"
 #include "HttpRequest.h"
@@ -17,6 +19,8 @@
 #include "config.h"
 #include "ThreadPool.h"
 #include "util.h"
+#include "Logger/Logger.h"
+#include "Logger/loglvl.h"
 
 static std::string fail_msg = "HTTP/1.1 500 Internal Server Error\nContent-Type: text/html\nContent-Length: 29\n\n<H1>Not a valid Request!</H1>";
 
@@ -53,12 +57,10 @@ void *handleClient(void* client_sock)
 
 	std::string path = req.getPath().empty()?"index.html":req.getPath();
 
-	if(DEBUG)
-	{
-		std::cerr << "handlers: path = " << path << "\n" << std::endl;
-		std::cerr << "handlers: req.getPath().empty() = " << req.getPath().empty() << "\n" << std::endl;
-		std::cerr << "handlers: req.getPath() = " << req.getPath() << "\n" << std::endl;
-	}
+
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"handlers: path = "+path);
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"handlers: req.getPath().empty() = "+ std::string(req.getPath().empty()?"TRUE":"FALSE"));
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"handlers: req.getPath() = "+req.getPath());
 
 	std::string html_page;
 
@@ -69,7 +71,7 @@ void *handleClient(void* client_sock)
 	}
 	catch(const std::exception& e)
 	{
-		std::cerr << "handlers: exception = " << e.what() << "\n" << std::endl;
+		LoggerSpace::Logger::instance().log(Loglvl::ERROR,"handlers: exception = "+std::string(e.what()));		
 		res.sendData(fail_msg);
 		closeConn(clientSocket);
 		return NULL;// connection closed, nothing to do so return
@@ -85,7 +87,7 @@ void *handleClient(void* client_sock)
 
 }
 
-//accept connections thread where each request run on a new thread
+//accept connections thread
 void *listener(void* listenerArgs)
 {	
 	ListenerArgs* args = reinterpret_cast<ListenerArgs*>(listenerArgs);
@@ -104,35 +106,18 @@ void *listener(void* listenerArgs)
 	{
 
 		int* p_clientSock = nullptr;
-		int accept_fd = -1;
+		int accept_fd;
 
 
-		if(DEBUG)
-		{
-			//Debugging logs
-			struct sockaddr_storage their_addr; // connector's address information
-			socklen_t sin_size;
-			sin_size = sizeof their_addr;
+		struct sockaddr_storage their_addr; // connector's address information
+		socklen_t sin_size;
+		sin_size = sizeof their_addr;
 
-			accept_fd = accept(server_sock_local, (struct sockaddr *) &their_addr, &sin_size);
-
-			if (accept_fd > 0)
-			{
-				char s[INET6_ADDRSTRLEN];
-				inet_ntop(their_addr.ss_family,get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
-				std::cerr << "Server: got connection from " << s << std::endl;
-			}
-
-
-		}
-		else
-		{
-			accept_fd = accept(server_sock_local, NULL, NULL);
-		}
-
+		accept_fd = accept(server_sock_local, (struct sockaddr *) &their_addr, &sin_size);
 
 		if (accept_fd > 0)
 		{
+
 			//This is needed in order to avoid having the client socket overwritten from other request
 			p_clientSock = new(std::nothrow) int;
 
@@ -141,62 +126,49 @@ void *listener(void* listenerArgs)
 				*p_clientSock = accept_fd;
 			}
 
-		}
+			char s[INET6_ADDRSTRLEN];
+			inet_ntop(their_addr.ss_family,get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
+			LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"Server: got connection from "+std::string(s));	
 
-
-		if(DEBUG && p_clientSock != nullptr)
-		{
-			std::cerr << "^^^handleClient: p_clientSock " << *p_clientSock << "\n" << std::endl;
 		}
 
 		if(p_clientSock != nullptr)
 		{
+			LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"handleClient: p_clientSock "+std::to_string(*p_clientSock ));
+
 			//check in which mode the server runs
 			if(mode == Mode::ThreadPool)
 			{
-				if(DEBUG)
-				{
-					std::cerr << "server runs in ThreadPool mode" << std::endl;
-				}
+				LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"server runs in ThreadPool mode" );
+
 				if(workers!=nullptr)
 				{
 					(*workers).addJob([=] () { handleClient((void*)p_clientSock); });
 				}
 				else
 				{
-					if(DEBUG)
-					{
-						std::cerr << "Something went terribly wrong, ThreadPool is null" << std::endl;
-					}
+					LoggerSpace::Logger::instance().log(Loglvl::FATAL,"Something went terribly wrong, ThreadPool is null" );
 					exit(-1);
 				}
 				
 			}
 			else
 			{
-				if(DEBUG)
-				{
-					std::cerr << "server runs in THreadPerReq mode" << std::endl;
-				}
+				LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"server runs in ThreadPerReq mode" );
 
 				pthread_t th_conn;
 
 				if ((pthread_create(&th_conn, NULL, &handleClient, p_clientSock)) == 0)
 				{
-					if(DEBUG)
-					{
-						std::cerr << "handleClient: A new thread connection created. Socket:" << *p_clientSock << std::endl;
-					}
+					LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"handleClient: A new thread connection created. Socket:"+std::to_string(*p_clientSock) );
 
-					//This is needed to free the thread resources but pthread_detach is faster,
-					//we don't want to wait so go with that
-					//pthread_join(clientThread, NULL);
+					//There is no I/O in files so we do not care much if app terminates, thread should clear it's own resources
 					pthread_detach(th_conn);
 
 				}
 				else
-				{
-					std::perror("handleClient: pthread_create: fail");
+				{					
+					LoggerSpace::Logger::instance().log(Loglvl::ERROR,"handleClient: pthread_create: fail" + std::string(std::strerror(errno)));
 					close(*p_clientSock);
 					delete (int*)p_clientSock;
 
@@ -210,16 +182,17 @@ void *listener(void* listenerArgs)
 			if(accept_fd > 0)
 			{
 				close(accept_fd);
-				std::cerr << "handleClient: failed to allocate memory, closing the socket" << std::endl;
+				LoggerSpace::Logger::instance().log(Loglvl::ERROR,"handleClient: failed to allocate memory, closing the socket");				
 			}
 
-			std::perror("Server: accept");
+			LoggerSpace::Logger::instance().log(Loglvl::ERROR,"Server: accept " + std::string(std::strerror(errno)));
+			//std::perror("Server: accept");
 		}
 
 	}
 }
 
-//not the best practice but currently it does the job
+//close the connection with the client
 static void closeConn(int clientSocket)
 {
 	shutdown(clientSocket,SHUT_RDWR);

@@ -9,21 +9,38 @@
 #include <iostream>
 #include "util.h"
 #include "config.h"
+#include "Logger/Logger.h"
 
 void printServerInfo(int server_sock, std::size_t numOfThreads )
 {
-	std::cerr << "Server started : server_sock = " << server_sock << std::endl;
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"Server started : server_sock = "+std::to_string(server_sock));
+	
 	if( THREADPOOL == 1)
 	{
-		std::cout<<"Server Mode: ThreadPool, Number of Threads:"<<numOfThreads<<"\n"<<std::endl;
+		LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"Server Mode: ThreadPool, Number of Threads:"+std::to_string(numOfThreads));
 	}
 	else
 	{
-		std::cout<<"Server Mode: Thread per Request" <<std::endl;
+		LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"Server Mode: Thread per Request");
 	}
 		
 	std::cerr << "Waiting for connections..." << std::endl;
 }
-
+//bundle arguments
 ListenerArgs::ListenerArgs(int server_sock, void* workers, Mode mode):
 	server_sock{server_sock}, workers{workers}, mode{mode}{};
+
+//converts a Loglvl enum to string
+std::string ToString(Loglvl loglvl)
+{
+    switch (loglvl)
+    {
+        case Loglvl::FATAL:   return "FATAL";
+        case Loglvl::ERROR:   return "ERROR";
+        case Loglvl::DEBUG:	  return "DEBUG";
+		case Loglvl::WARN:	  return "WARN";
+		case Loglvl::INFO:	  return "INFO";
+		case Loglvl::TRACE:	  return "TRACE";
+        default:      		  return "UNKOWN";
+    }
+}

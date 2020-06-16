@@ -15,6 +15,8 @@
 
 #include "HttpResponse.h"
 #include "config.h"
+#include "Logger/Logger.h"
+#include "Logger/loglvl.h"
 
 
 HttpResponse::HttpResponse(int clientSocket):
@@ -26,19 +28,13 @@ int HttpResponse::sendData(std::string html)
 
 	if (send(clientSocket, c_msg, std::strlen(c_msg), 0) == -1)
 	{
-		std::perror("send");
+		LoggerSpace::Logger::instance().log(Loglvl::ERROR,"Server: send: " + std::string(std::strerror(errno)));
 		return -1;
 	}
 
-	if(DEBUG)
-	{
-		std::cerr << "--------------DATA SEND--------------" << std::endl;
-		std::cerr <<"!!!!!!!!!"<< html << std::endl;
-	}
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"DATA SEND:\n"+html);
 
 	return std::strlen(c_msg);
-	//added delay to keep the socket open
-	//sleep(1);
 }
 
 void HttpResponse::readHtml(const std::string& path, std::string& html_page)
@@ -49,10 +45,7 @@ void HttpResponse::readHtml(const std::string& path, std::string& html_page)
 	std::ifstream file{path};
 	if (file.fail())
 	{
-		if(DEBUG)
-		{
-			std::cerr << "failed to open file:" << path << "\n" << std::endl;
-		}
+		LoggerSpace::Logger::instance().log(Loglvl::ERROR,"failed to open file:"+path);
 	    // file could not be opened
 		throw std::runtime_error{"file could not be opened"};
 
@@ -66,10 +59,7 @@ void HttpResponse::readHtml(const std::string& path, std::string& html_page)
 		}
 		catch (const std::length_error& e)
 		{
-			if(DEBUG)
-			{
-				std::cerr << "Exception occured:" <<e.what()<< "\n" << std::endl;
-			}
+			LoggerSpace::Logger::instance().log(Loglvl::ERROR,"Exception occured:"+std::string(e.what()));
 
 			throw std::runtime_error{"length_error"};
 
@@ -87,20 +77,14 @@ std::string HttpResponse::read_and_build_html_data(std::ifstream& file)
 	file.seekg(0, std::ios::end);
 	size_t size = file.tellg();
 
-	if(DEBUG)
-	{
-		std::cerr << "------read_and_build_html_data size:" << size<< std::endl;
-	}
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"read_and_build_html_data size:"+std::to_string(size));
 
 
 	std::string buffer(size, ' ');
 	file.seekg(0);
 	file.read(&buffer[0], size);
 
-	if(DEBUG)
-	{
-		std::cerr << "------default buffer:" << buffer << std::endl;
-	}
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"default buffer:"+buffer);
 
 	std::stringstream ss;
 	ss << header<<size<<"\n\n"<<buffer<<std::endl;

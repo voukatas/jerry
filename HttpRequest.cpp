@@ -12,10 +12,13 @@
 #include <unistd.h>
 #include <string>
 #include <iostream>
+#include <errno.h>
+#include <cstring>
 
 #include "HttpRequest.h"
 #include "config.h"
-
+#include "Logger/Logger.h"
+#include "Logger/loglvl.h"
 
 
 HttpRequest::HttpRequest(int clientSocket):
@@ -33,11 +36,11 @@ int HttpRequest::readData(void)
 		//peer has performed an orderly shutdown
 		if( numbytes == 0)
 		{
-			std::perror("Server: recv peer has performed an orderly shutdown ");
+			LoggerSpace::Logger::instance().log(Loglvl::INFO,"Server: recv peer has performed an orderly shutdown: " + std::string(std::strerror(errno)));
 		}
 		else
 		{
-			std::perror("Server: recv");
+			LoggerSpace::Logger::instance().log(Loglvl::INFO,"Server: recv: " + std::string(std::strerror(errno)));
 		}
 		//close the socket immediately
 		close(clientSocket);
@@ -85,10 +88,7 @@ int HttpRequest::isReqValid()
 	//check if the path is a file and if not send an error response
 	if( !HttpRequest::is_path_file(path) )
 	{
-		if(DEBUG)
-		{
-			std::cerr << "path:" << path << " NOT A FILE\n" << std::endl;
-		}
+		LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"path: "+path+" NOT A FILE\n");
 		return -1;
 	}
 
@@ -103,13 +103,10 @@ void HttpRequest::parseReq()
 	path = std::string(path_and_protocol,1,path_len-1);
 	protocol = std::string(path_and_protocol,path_len+1,8);
 
-	if(DEBUG)
-	{
-		std::cerr << "client sent: " << request << "\n" << std::endl;
-		std::cerr << "client sent method:" << method_name << std::endl;
-		std::cerr << "client sent path:" << path << std::endl;
-		std::cerr << "client sent protocol:" << protocol<<"\n\n" << std::endl;		
-	}
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent:\n"+request);
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent method:"+method_name);
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent path:"+path);
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent protocol:"+protocol);
 
 }
 

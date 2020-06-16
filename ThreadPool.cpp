@@ -7,6 +7,8 @@
 
 #include "config.h"
 #include "ThreadPool.h"
+#include "Logger/Logger.h"
+#include "Logger/loglvl.h"
 
 using namespace ThreadPoolSpace;
 
@@ -38,12 +40,6 @@ void ThreadPool::start(std::size_t numOfWorkers){
         //create and hold worker threads
         workers.emplace_back([=](){
 
-            std::thread::id worker_id;//only for debugging
-
-            if(DEBUG){
-                worker_id = std::this_thread::get_id();
-            }
-
             while(true){
 
                 Job job;
@@ -63,10 +59,8 @@ void ThreadPool::start(std::size_t numOfWorkers){
                 }
                 //better execute the job out of scope in order to hold the lock less
                 job();
-
-                if(DEBUG){
-                    std::cout<<"Thread:"<<worker_id<<" finished"<<std::endl;
-                }
+                
+                LoggerSpace::Logger::instance().log(Loglvl::TRACE,"Job completed");
 
             }
         });
@@ -75,9 +69,7 @@ void ThreadPool::start(std::size_t numOfWorkers){
 
 void ThreadPool::shutdown(){
 
-    if(DEBUG){
-        //std::cout<<"Shutting down!!!!"<<std::endl;
-    }
+    LoggerSpace::Logger::instance().log(Loglvl::TRACE,"ThreadPool is shutting down");
 
     {
         std::unique_lock<std::mutex> lock(jobQMutex);

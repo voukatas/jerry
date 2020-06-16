@@ -11,6 +11,7 @@
 #include <cstddef>
 
 #include "mode.h"
+#include "Logger/loglvl.h"
 
 void printServerInfo(int server_sock, std::size_t numOfThreads );
 
@@ -26,5 +27,6 @@ class ListenerArgs
 	
 };
 
+std::string ToString(Loglvl loglvl);
 
 #endif /* UTIL_H */

@@ -35,6 +35,13 @@ namespace ThreadPoolSpace
         virtual ~ThreadPool();
         ThreadPool() = delete;
 
+        //delete copy/move constructors and assgiments
+        ThreadPool(const ThreadPool&) = delete;
+        ThreadPool& operator=(const ThreadPool&) = delete;
+
+        ThreadPool( ThreadPool&&) = delete;
+        ThreadPool& operator=(ThreadPool&&) = delete;
+
 	    void addJob(Job job);
 
     private:
