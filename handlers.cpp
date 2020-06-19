@@ -37,7 +37,7 @@ void *handleClient(void* client_sock)
 	HttpRequest req{clientSocket};
 	HttpResponse res{clientSocket};
 
-	int cause = req.readData();//0 for success
+	auto cause = req.readData();//0 for success
 
 	if(cause != 0)
 	{
@@ -47,8 +47,9 @@ void *handleClient(void* client_sock)
 	}
 
 	req.parseReq();
+	cause = req.isReqValid();
 
-	if(req.isReqValid() != 0)
+	if( cause != 0 )
 	{
 		res.sendData(fail_msg);
 		closeConn(clientSocket);

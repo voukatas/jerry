@@ -6,14 +6,17 @@
  */
 
 #pragma once
+
+#include <sstream> 
 class HttpRequest
 {
 private:
 	int clientSocket;
-	std::string request;
+	std::istringstream request;
 	std::string method_name;
 	std::string path;
 	std::string protocol;
+	int parseReqFirstLine(std::string& line);
 
 public:
 	explicit HttpRequest(int clientSocket);

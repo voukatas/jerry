@@ -14,6 +14,7 @@
 #include <iostream>
 #include <errno.h>
 #include <cstring>
+#include <vector>
 
 #include "HttpRequest.h"
 #include "config.h"
@@ -50,14 +51,15 @@ int HttpRequest::readData(void)
 	//set the last byte to NUL termination string
 	buffer[numbytes] = '\0';
 
-	request = std::string(buffer);
+	//request = std::string(buffer);
+	request.str(std::string(buffer));
 
 	return 0;
 }
 
 std::string HttpRequest::getRequest()
 {
-	return request;
+	return request.str();
 }
 
 std::string HttpRequest::getMethodName()
@@ -97,17 +99,63 @@ int HttpRequest::isReqValid()
 
 void HttpRequest::parseReq()
 {
-	method_name = std::string(request,0,3);
-	std::string path_and_protocol = std::string(request,4);
-	std::size_t path_len = path_and_protocol.find(" ");
-	path = std::string(path_and_protocol,1,path_len-1);
-	protocol = std::string(path_and_protocol,path_len+1,8);
+	// method_name = std::string(request,0,3);
+	// std::string path_and_protocol = std::string(request,4);
+	// std::size_t path_len = path_and_protocol.find(" ");
+	// path = std::string(path_and_protocol,1,path_len-1);
+	// protocol = std::string(path_and_protocol,path_len+1,8);
 
-	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent:\n"+request);
+	//ToDo: Refactor, use causes and extend the parser for other methods
+\
+	std::string line;
+	std::getline(request, line);
+
+	int cause = HttpRequest::parseReqFirstLine(line);
+
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent:\n"+request.str());
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client line:\n" + line);
+
+
+	
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent method:"+method_name);
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent path:"+path);
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent protocol:"+protocol);
 
+}
+
+int HttpRequest::parseReqFirstLine(std::string &line)
+{
+	std::vector<std::string> splitedLine;
+	auto countElem = 0;
+	std::string token = "";
+	auto cause = 0;
+	auto index = 0;
+
+	for (auto x : line)
+	{
+		if (x == ' ')
+		{
+			splitedLine.push_back(token);
+			token = "";
+			countElem++;
+			if (countElem == 2)
+			{
+				break;
+			}
+		}
+		else
+		{
+			token = token + x;
+		}
+		index++;
+	}
+
+	int len = line.size() - (index + 1);
+	method_name = splitedLine.at(0);
+	path = std::string(splitedLine.at(1), 1);
+	protocol = std::string(line, index + 1, len);
+
+	return cause;
 }
 
 //checks if the given path is a regular file
@@ -128,5 +176,5 @@ bool HttpRequest::is_path_file(std::string path_value)
 
 void HttpRequest::setRequest(std::string req)
 {
-	request = req;
+	request.str(req);
 }

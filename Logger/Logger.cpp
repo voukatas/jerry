@@ -58,6 +58,8 @@ void Logger::log(Loglvl loglvl, std::string msg)
 	    threadID << "[Thread Id = " << std::this_thread::get_id()<<"] ";
 
         std::string logLvlStr = ToString(loglvl);
+        //For Docker debug
+        //std::cout << timestamp.str() << ": " <<"["<<logLvlStr<<"] "<< threadID.str()<<msg << std::endl;
 
         //create local scope for lock and avoid race conditions
         {
