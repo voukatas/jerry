@@ -17,8 +17,8 @@ private:
 	std::string method_name;
 	std::string path;
 	std::string protocol;
-	int parseReqFirstLine(std::string& line);
-	int parseReqFields(std::string& line);
+	void parseReqFirstLine(std::string& line);
+	void parseReqFields(std::string& line);
 	std::map<std::string, std::string> fieldMap;
 
 public:

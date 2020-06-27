@@ -78,9 +78,12 @@ std::string HttpRequest::getProtocol()
 }
 
 int HttpRequest::isReqValid()
-{
-	//ToDo Check if the method is valid
-	//ToDo regex to validae req
+{	
+	//Only GET method is currently supported
+	if(method_name != "GET")
+	{
+		return -2;
+	}
 
 	//client ask for the default page
 	if(path.empty())
@@ -99,18 +102,11 @@ int HttpRequest::isReqValid()
 
 void HttpRequest::parseReq()
 {
-	// method_name = std::string(request,0,3);
-	// std::string path_and_protocol = std::string(request,4);
-	// std::size_t path_len = path_and_protocol.find(" ");
-	// path = std::string(path_and_protocol,1,path_len-1);
-	// protocol = std::string(path_and_protocol,path_len+1,8);
-
-	//ToDo: Refactor, use causes and extend the parser for other methods
-
+	//ToDo: check for failures
 	std::string line;
 	std::getline(request, line);
 
-	HttpRequest::parseReqFirstLine(line);//ToDo handle cause
+	HttpRequest::parseReqFirstLine(line);
 
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent:\n"+request.str());
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client line:\n" + line);
@@ -119,6 +115,8 @@ void HttpRequest::parseReq()
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent path:"+path);
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent protocol:"+protocol);
 
+
+
 	while(std::getline(request, line))
 	{
 		HttpRequest::parseReqFields(line);
@@ -126,40 +124,9 @@ void HttpRequest::parseReq()
 
 }
 
-int HttpRequest::parseReqFirstLine(std::string &line)
+void HttpRequest::parseReqFirstLine(std::string &line)
 {
-	// std::vector<std::string> splitedLine;
-	// auto countElem = 0;
-	// std::string token = "";
-	// auto cause = 0;
-	// auto index = 0;
-
-	// for (auto x : line)
-	// {
-	// 	if (x == ' ')
-	// 	{
-	// 		splitedLine.push_back(token);
-	// 		token = "";
-	// 		countElem++;
-	// 		if (countElem == 2)
-	// 		{
-	// 			break;
-	// 		}
-	// 	}
-	// 	else
-	// 	{
-	// 		token = token + x;
-	// 	}
-	// 	index++;
-	// }
-
-	// int len = line.size() - (index + 1);
-	// method_name = splitedLine.at(0);
-	// path = std::string(splitedLine.at(1), 1);
-	// protocol = std::string(line, index + 1, len);
-
 	std::vector<std::string> splitedLine;
-	auto cause = 0;
 	
 	std::string delimiter = " ";
 
@@ -177,46 +144,25 @@ int HttpRequest::parseReqFirstLine(std::string &line)
 	path = splitedLine.at(1).erase(0,1);//remove the /
 	protocol = splitedLine.at(2);
 
-	return cause;
 }
 
-int HttpRequest::parseReqFields(std::string& line)
+void HttpRequest::parseReqFields(std::string& line)
 {
-	int cause = 0;
 	std::stringstream ss(line);
     std::string s;
-	//std::string field;
-	//std::string value;
-	//int count=0;
 
 	if(line == "\r" || line == "")
 	{
-		return cause;
+		return;
 	}
 	
 	std::string delimiter = ":";
 	std::string field = line.substr(0, line.find(delimiter));
-	std::string value = line.substr(line.find(delimiter));
+	std::string value = line.substr(line.find(delimiter)+2);
 
 	fieldMap[field] = value;
-
-	// while(std::getline(ss, s, ':'))
-	// {
-	// 	if(count<1)
-	// 	{
-	// 		field = s;
-	// 	}
-	// 	else
-	// 	{
-	// 		value += s;
-	// 	}
-
-	// 	count++;		
-	// }
 	
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"parseReqFields: field="+field+" value="+fieldMap[field]);
-	
-	return cause;
 	
 }
 

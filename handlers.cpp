@@ -23,9 +23,12 @@
 #include "Logger/loglvl.h"
 
 static std::string fail_msg = "HTTP/1.1 500 Internal Server Error\nContent-Type: text/html\nContent-Length: 29\n\n<H1>Not a valid Request!</H1>";
+static std::string fail_method_msg = "HTTP/1.1 500 Internal Server Error\nContent-Type: text/html\nContent-Length: 29\n\n<H1>Method not supported</H1>";
 
 //close connection
 static void closeConn(int clientSocket);
+//check returned cause and send failure msg if not success
+static int checkCauseAndSentFailure(int cause, HttpResponse res, int clientSocket );
 
 //serve client function
 void *handleClient(void* client_sock)
@@ -47,12 +50,11 @@ void *handleClient(void* client_sock)
 	}
 
 	req.parseReq();
+
 	cause = req.isReqValid();
 
-	if( cause != 0 )
+	if( checkCauseAndSentFailure(cause,res,clientSocket) != 0 )
 	{
-		res.sendData(fail_msg);
-		closeConn(clientSocket);
 		return NULL;// connection closed, nothing to do so return
 	}
 
@@ -198,6 +200,26 @@ static void closeConn(int clientSocket)
 {
 	shutdown(clientSocket,SHUT_RDWR);
 	close(clientSocket);
+}
+
+static int checkCauseAndSentFailure(int cause, HttpResponse res, int clientSocket )
+{
+	if( cause != 0 )
+	{
+		if(cause == -2)
+		{
+			res.sendData(fail_method_msg);			
+		}
+		else
+		{
+			res.sendData(fail_msg);
+		}
+		
+		
+		closeConn(clientSocket);		
+	}
+
+	return cause;	
 }
 
 void *get_in_addr(struct sockaddr *sa)

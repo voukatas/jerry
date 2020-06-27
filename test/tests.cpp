@@ -33,7 +33,7 @@ TEST_CASE( "GET Method Tests")
 	
 	int clientSocket{4};
 	HttpRequest httpRequest0{clientSocket};
-	httpRequest0.setRequest("GET /test HTTP/1.1");
+	httpRequest0.setRequest("GET /test HTTP/1.1\nHost: localhost:8080\nConnection: keep-alive\nSec-Fetch-Mode: no-cors");
 	httpRequest0.parseReq();
 
 	HttpRequest httpRequest1{clientSocket};
@@ -58,7 +58,7 @@ TEST_CASE( "GET Method Tests")
 
 	SECTION("Get request")
 	{
-		REQUIRE(httpRequest0.getRequest() == "GET /test HTTP/1.1");
+		REQUIRE(httpRequest0.getRequest() == "GET /test HTTP/1.1\nHost: localhost:8080\nConnection: keep-alive\nSec-Fetch-Mode: no-cors");
 		REQUIRE(httpRequest1.getRequest() == "GET /favicon.ico HTTP/1.1");
 		REQUIRE(httpRequest2.getRequest() == "GET / HTTP/1.1");
 	}
@@ -83,16 +83,18 @@ TEST_CASE( "GET Method Tests")
 		REQUIRE(httpRequest0.getProtocol() != "HTTP/");
 	}
 
+	SECTION("Get fields")
+	{
+		REQUIRE(httpRequest0.getFieldMap()["Host"] == "localhost:8080");
+		REQUIRE(httpRequest0.getFieldMap()["Connection"] == "keep-alive");
+		REQUIRE(httpRequest0.getFieldMap()["Sec-Fetch-Mode"] == "no-cors");
+	}
+
 	SECTION("Validate if regular file")
 	{
 		REQUIRE(httpRequest0.isReqValid() == -1);
 		REQUIRE(httpRequest3.isReqValid() == 0);//true, cause 0 is success
 
-	}
-
-	SECTION("Validate GET request with regex")
-	{
-		//ToDo
 	}
 
 
