@@ -106,56 +106,123 @@ void HttpRequest::parseReq()
 	// protocol = std::string(path_and_protocol,path_len+1,8);
 
 	//ToDo: Refactor, use causes and extend the parser for other methods
-\
+
 	std::string line;
 	std::getline(request, line);
 
-	int cause = HttpRequest::parseReqFirstLine(line);
+	HttpRequest::parseReqFirstLine(line);//ToDo handle cause
 
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent:\n"+request.str());
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client line:\n" + line);
-
-
 	
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent method:"+method_name);
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent path:"+path);
 	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"client sent protocol:"+protocol);
 
+	while(std::getline(request, line))
+	{
+		HttpRequest::parseReqFields(line);
+	}	
+
 }
 
 int HttpRequest::parseReqFirstLine(std::string &line)
 {
+	// std::vector<std::string> splitedLine;
+	// auto countElem = 0;
+	// std::string token = "";
+	// auto cause = 0;
+	// auto index = 0;
+
+	// for (auto x : line)
+	// {
+	// 	if (x == ' ')
+	// 	{
+	// 		splitedLine.push_back(token);
+	// 		token = "";
+	// 		countElem++;
+	// 		if (countElem == 2)
+	// 		{
+	// 			break;
+	// 		}
+	// 	}
+	// 	else
+	// 	{
+	// 		token = token + x;
+	// 	}
+	// 	index++;
+	// }
+
+	// int len = line.size() - (index + 1);
+	// method_name = splitedLine.at(0);
+	// path = std::string(splitedLine.at(1), 1);
+	// protocol = std::string(line, index + 1, len);
+
 	std::vector<std::string> splitedLine;
-	auto countElem = 0;
-	std::string token = "";
 	auto cause = 0;
-	auto index = 0;
+	
+	std::string delimiter = " ";
 
-	for (auto x : line)
+	size_t pos = 0;
+	std::string token;
+	while ((pos = line.find(delimiter)) != std::string::npos)
 	{
-		if (x == ' ')
-		{
-			splitedLine.push_back(token);
-			token = "";
-			countElem++;
-			if (countElem == 2)
-			{
-				break;
-			}
-		}
-		else
-		{
-			token = token + x;
-		}
-		index++;
+		token = line.substr(0, pos);
+		splitedLine.push_back(token);
+		line.erase(0, pos + delimiter.length());
 	}
+	splitedLine.push_back(line);
 
-	int len = line.size() - (index + 1);
 	method_name = splitedLine.at(0);
-	path = std::string(splitedLine.at(1), 1);
-	protocol = std::string(line, index + 1, len);
+	path = splitedLine.at(1).erase(0,1);//remove the /
+	protocol = splitedLine.at(2);
 
 	return cause;
+}
+
+int HttpRequest::parseReqFields(std::string& line)
+{
+	int cause = 0;
+	std::stringstream ss(line);
+    std::string s;
+	//std::string field;
+	//std::string value;
+	//int count=0;
+
+	if(line == "\r" || line == "")
+	{
+		return cause;
+	}
+	
+	std::string delimiter = ":";
+	std::string field = line.substr(0, line.find(delimiter));
+	std::string value = line.substr(line.find(delimiter));
+
+	fieldMap[field] = value;
+
+	// while(std::getline(ss, s, ':'))
+	// {
+	// 	if(count<1)
+	// 	{
+	// 		field = s;
+	// 	}
+	// 	else
+	// 	{
+	// 		value += s;
+	// 	}
+
+	// 	count++;		
+	// }
+	
+	LoggerSpace::Logger::instance().log(Loglvl::DEBUG,"parseReqFields: field="+field+" value="+fieldMap[field]);
+	
+	return cause;
+	
+}
+
+std::map<std::string, std::string>& HttpRequest::getFieldMap()
+{
+	return fieldMap;
 }
 
 //checks if the given path is a regular file
